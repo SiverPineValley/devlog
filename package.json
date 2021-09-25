@@ -5,7 +5,7 @@
   "version": "0.1.0",
   "author": "Jbee[JaeYeopHan]<ljyhanll@gmail.com>",
   "bugs": {
-    "url": "https://github.com/JaeYeopHan/gatsby-starter-bee/issues"
+    "url": "https://devlog-siverpinevalley.netlify.app/"
   },
   "dependencies": {
     "gatsby": "^2.2.8",
