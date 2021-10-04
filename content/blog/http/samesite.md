@@ -1,6 +1,6 @@
 ---
 title: '[HTTP] 크롬 브라우저의 쿠키 정책과 SameSite'
-date: 2021-10-04 20:06:22
+date: 2021-10-04 21:55:30
 category: 'http'
 draft: false
 ---
