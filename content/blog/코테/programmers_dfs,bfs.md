@@ -2,7 +2,7 @@
 title: '[프로그래머스 연습문제] BFS, DFS'
 date: 2022-03-01 20:03:17
 category: '코테'
-draft: true
+draft: false
 ---
 
 오랜만에 DFS, BFS 문제들을 풀어보았다.
