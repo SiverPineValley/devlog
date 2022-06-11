@@ -1,9 +1,9 @@
-<!-- ---
+---
 title: '[프로그래머스 연습문제] Dynamic Programming'
-date: 2022-03-01 20:03:17
+date: 2022-06-11 16:00:22
 category: '코테'
 draft: false
---- -->
+---
 
 이번에는 다이나믹 프로그래밍 문제들을 풀어보았다.
 DP 알고리즘은 개념 자체가 생소하고 문제에 적용하기 어려워 그런지 LV3 이상 문제부터 있었다.
@@ -86,8 +86,8 @@ int solution(int N, int number) {
 정석적인 다이나믹프로그래밍 문제였다.
 이번에는 top-down이 아닌, bottom-up 반복문으로 풀이해보았다.
 
-처음에는 삼각형 꼭대기에서 내려가는 방식으로 구현하려 했으나... 재귀형식으로 풀이는 가능하나
-효율성이 떨어지는지 일부 테스트 케이스를 통과를 못해서 아래쪽에서부터 올라가는 방식으로 재구현했다.
+풀이 방법은 각 삼각형 노드 방문 시 끝부분일 경우에는 여러 노드를 방문하지 않도록 예외 케이스를 주었다는 점이다.
+또 신기한 것이 기존처럼 매크로 3항 연산 함수를 사용하는 것보다 아래와 같이 그냥 함수를 사용하는 것이 더 효율성이 좋다는 점 이었다.
 
 
 ```c++
@@ -106,14 +106,11 @@ int solution(vector<vector<int>> triangle) {
     
     for(int i=1; i<height; i++){
         for(int j=0; j<=i; j++){
-            // 삼각형 제일 왼쪽 끝인 경우
             if(j == 0){
                 d[i][j] = d[i-1][j] + triangle[i][j];
-            // 삼각형 제일 오른쪽 끝인 경우
             }else if(j == i){
                 d[i][j] = d[i-1][j-1] + triangle[i][j];
             }
-            // 삼각형 내부인 경우
             else{
                 d[i][j] = max(d[i-1][j-1], d[i-1][j]) + triangle[i][j];
             }
@@ -122,5 +119,53 @@ int solution(vector<vector<int>> triangle) {
         }
     }
     return answer;
+}
+```
+
+
+## [Level 4] 도둑질
+
+
+고득점 Kit 다이나믹 프로그래밍 문제 중 가장 난이도가 높은 문제이다.
+문제 자체는 이해하기 쉬운 편이다. 집이 순환형으로 배치되어 있을 때 연속되는 집을 방문하지 않고 방문해서 가장 큰 수익을 얻을 수 있는 방법을 찾는 문제였다.
+다만, 문제가 간단하고 제한사항이 많지 않았지만 순환형으로 집이 배치되어 있다는 점 때문에 난이도가 급 상승하게 된다.
+
+
+처음 점화식 세울 때도 고민을 했는데, 찾아낸 방법은 처음부터 집의 가치를 누적해간다고 했을 때 `현재 단계 누적 가치 = max(이전 단계 누적 가치, 전전 단계 누적 가치 + 현재 집 가치)` 이다. 집이 일자로 배치되어 있고, 지금 문제처럼 이어지 있지 않을 때는 이 방법으로 바로 계산이 가능하나, 순환형 배치라 여기서 더 고민이 추가되어야 한다.
+
+
+첫 번째 집을 고르면 마지막 집을 고르지 말아야 하고, 마지막 집을 고르면 첫 번째 집을 고르지 말아야 한다. 이 부분을 어떻게 구현해야 할지 엄청나게 고민했지만 혼자서는 결론을 내지 못하고 있다가 [누군가의 해설](https://programmers.co.kr/questions/31576) 덕분에 방법을 찾아낼 수 있었다. 이 분도 나랑 같은 고민을 꽤나 현명하게 해결하셨는데, 그냥 마지막 집이 빠진 배열, 첫 번째 집이 빠진 배열 두개로 나눠 동시에 구하면 된다는 것 이었다. 또한, 각 배열 앞에 0을 추가하여 첫 번째 점화식 적용 지점에서 첫 번째, 두 번째 집을 비교할 수 있도록 하면 굉장히 쉽게 해결이 가능하다.
+
+
+역시 정답 또한 간단했다.
+
+
+```c++
+ #include <string>
+#include <vector>
+
+using namespace std;
+
+int max(int a, int b) {
+    if (a > b) return a;
+    return b;
+}
+
+int solution(vector<int> money) {
+    int num = money.size();
+    vector<int> first(num, 0);
+    vector<int> second(num, 0);
+    
+    for(int i = 1; i < num; i++) {
+        first[i] = money[i-1];
+        second[i] = money[i];
+    }
+    
+    for(int i = 2; i < num; i++) {
+        first[i] = max(first[i - 1], first[i - 2] + first[i]);
+        second[i] = max(second[i - 1], second[i - 2] + second[i]);
+    }
+    
+    return max(first[num - 1], second[num - 1]);
 }
 ```
