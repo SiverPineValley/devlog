@@ -6,7 +6,7 @@ draft: false
 ---
 
 <div align="left">
-  <img src="./images/golang_concurrency.jpg" width="200px" />
+  <img src="./images/golang_concurrency.jpeg" width="200px" />
 </div>
 
 
