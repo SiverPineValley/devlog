@@ -64,7 +64,7 @@ $ kubectl config set-context prd-admin \
 --namespace=default
 ```
 
-kubectl은 컨텍스트(current-context)를 전환하여 여러 환경을 여러 권한으로 조작할 수 있도록 설계되어 있다. 여기서 user 설정을 추가할 때의 인증서 파일은 [openssl을 사용한 인증서 파일 생성](../cert/openssl.md) 문서를 참고하면 생성할 수 있다.
+kubectl은 컨텍스트(current-context)를 전환하여 여러 환경을 여러 권한으로 조작할 수 있도록 설계되어 있다. 여기서 user 설정을 추가할 때의 인증서 파일은 [openssl을 사용한 인증서 파일 생성](https://main--devlog-siverpinevalley.netlify.app/cert/openssl/) 문서를 참고하면 생성할 수 있다.
 
 
 ```sh
