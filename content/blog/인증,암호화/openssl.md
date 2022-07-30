@@ -51,6 +51,18 @@ openssl req -new -key "KEY 경로" -out "CSR 저장 경로" -config "REQ_INFO �
 위 명령어를 실행하기 전에 REQ_INFO 파일을 만든다.
 
 ```
+[req] 
+default_bit = 2048 
+prompt = no 
+distinguished_name = dn 
+
+[dn] 
+C=KR 
+L=Seoul 
+O=COMPANY 
+OU=DEV 
+emailAddress=EMailAddress ex)test@test.com
+CN=IP 또는 Domain
 ```
 
 
