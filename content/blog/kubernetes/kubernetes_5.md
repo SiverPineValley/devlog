@@ -227,7 +227,7 @@ $ kubectl apply -f sample-pod.yaml --server-side
 ```
 
 
-## 4.5.5 파드 재기동
+## 4.5.5 파드 재기동, 롤백
 
 
 ```sh
@@ -240,5 +240,8 @@ $ kubectl rollout restart deployment sample-deployment
 
 # 리소스와 연결되어 있지 않은 파드는 재기동 안 됨
 $ kubectl rollout restart pod sample-pod
+
+# Deployment 직전 리비전으로 롤백
+$ kubectl rollout undo deployment echo
 ```
 
