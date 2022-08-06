@@ -1,8 +1,8 @@
 ---
 title: '[쿠버네티스 완벽 가이드] 06. API 리소스와 kubectl (3)'
-date: 2022-07-31 17:00:00
+date: 2022-08-06 18:00:00
 category: 'kubernetes'
-draft: true
+draft: false
 ---
 
 
@@ -325,3 +325,268 @@ $ kubectl api-resources --namespaced=true
 
 `kubectl get` 명령어는 리소스 목록을 가져올 수 있다.
 
+
+```sh
+# 파드 목록 표시
+$ kubectl get pods sample-pod
+
+# label1=val1과 label2 레이블을 가진 파드를 표시
+$ kubectl get pods -l label=val1,label2 --show-labels
+
+# 파드 목록 표시(더 상세히 표시)
+$ kubectl get pods -o wide
+
+# YAML 형식으로 파드의 상세 목록 출력
+$ kubectl get pods -o yaml
+
+# Custom Columns (모든 파드의 파드명과 기동 중인 호스트 IP주소를 표시)
+$ kubectl get pods -o custom-columns="NAME:{.metadata.name},NodeIP:{.status.hostIP}"
+
+# JSON Path(sample-pod의 파드명 표시)
+$ kubectl get pods sample-pod -o jsonpath="{.metadata.name}"
+
+# .spec.containers[].name이 nginx-container에 일치하는 요소의 .spec.containers[].image를 출력
+$ kubectl get pods sample-pod -o jsonpath="{.spec.containers[?(@.name == 'nginx-container')].image}"
+
+# Go Template(가장 유연한 출력 방식. 여기서는 모든 파드의 이름과 파드 안에서 기동 중인 각 컨테이너 이미지를 표시)
+$ kubectl get pods -o go-template="{{range .items}}{{.metadata.name}}:{{range .spec.containers}}{{.image}}{{end}} {{end}}"
+
+# 노드 목록 표시
+$ kubectl get nodes
+
+# 생성된 모든 종료의 리소스를 표시 (시크릿/컨피그맵/인그레스는 제외)
+$ kubectl get all
+
+# --watch 옵션을 사용하여 리소스 상태의 변화가 있을 때 결과를 계속 출력
+$ kubectl get pods --watch
+
+# --output-watch-events 옵션을 사용하면 해당 리소스가 API처럼 어떤 처리가 되었는지 이벤트 정보도 함께 표시할 수 있다.
+$ kubectl get pods --watch --output-watch-events
+```
+
+
+## 4.5.14 리소스 상세 정보 가져오기: describe
+
+
+```sh
+# 파드 상세 정보 표시
+$ kubectl describe pod sample-pod
+
+# 노드 상세 정보 표시
+$ kubectl describe node 
+```
+
+
+## 4.5.15  실제 리소스 사용량 확인: top
+
+
+`kubectl describe` 명령어에서 확인할 수 있는 리소스 사용량은 쿠버네티스가 파드에 확보한 값을 타나낸다. 실제 파드 내부의 컨테이너가 사용하고 있는 리소스 사용량은 `kubectl top`명령어를 사용하여 확인할 수 있다. 리소스 사용량은 노드와 파드 단위로 확인한다. 또, `kubectl top`명령어는 `metric-server`라는 추가 구성 요소를 사용한다. 일반적인 쿠버네티스 환경이라면 배포되겠지만, 배포되지 않을 경우에는 수동으로 배포해야 한다.
+
+
+```sh
+# 노드 리소스 사용량 확인
+$ kubectl top node
+error: Metrics API not available
+```
+
+
+그런데 위 명령어 사용 시 위와 같이 에러가 발생하였다. 확인해보니 쿠버네티스를 설치했다고 메트릭스 서버까지 같이 설치되지는 않는 모양이다. 그래서 별도로 설치를 진행하였다.
+
+
+```sh
+# metric 서버 실행
+$ kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+
+# kubectl에 접근하여 파드와 노드의 정보를 얻어올 수 있도록 설정 (tls 통신이 가능하도록 수정)
+$ kubectl edit deployments.apps -n kube-system metrics-server
+```
+
+yaml 파일 내부에서 args 찾아가서 아래 두 설정을 추가한다.
+|Arguments|Detail|
+|---|---|
+|--kubelet-insecure-tls|인증서가 공인 기관에 승인 받지 않아 안전하지 않기 때문에 보안적으로 취약하지만, 무시하겠다는 의미|
+|--kubelet-preferred-address-types=InternalIP|kubelet 연결에 사용할 때 사용하는 주소 타입을 지정|
+
+
+```sh
+# 파드별 리소스 사용량 확인
+$ kubectl -n kube-system top pod
+
+# 파드 리스트 표시 및 컨테이너별 리소스 사용량 확인
+$ kubectl -n kube-system get pods
+$ kubectl -n kube-system top pod --containers
+```
+
+
+## 4.5.16 컨테이너에서 명령어 실행: exec
+
+
+파드 내부의 컨테이너에서 특정 명령어를 실행시키려면 `kubectl exec` 명령어를 사용한다. 이 명령어를 사용하여 /bin/bash 등의 셸을 실행하여 마치 컨테이너에 로그인한 것과 같은 상태를 만들 수 있다. 명령어를 사용하기 전 `--`는 필수로 붙여서 사용해야 한다.
+
+
+```sh
+# 파드 내부의 컨테이너에서 /bin/ls 실행
+$ kubectl exec -it sample-pod -- /bin/ls
+
+
+# 여러 컨테이너에 존재하는 파드의 특정 컨테이너에서 /bin/ls 실행
+$ kubectl exec -it sample-pod -c nginx-container -- /bin/ls
+
+# 파드 내부의 컨테이너에서 /bin/bash 실행(종료하려면 exit 실행)
+$ kubectl exec -it sample-pod -- /bin/bash
+
+# 파이프 등 특정 문자가 포함된 경우 /bin/bash에 인수를 전달하는 형태로 실행
+$ kubectl exec -it sample-pod -- /bin/bash -c "ls -all --classify | grep lib"
+```
+
+
+## 4.5.17 파드에 디버깅용 임시 컨테이너 추가: debug
+
+
+컨테이너 이미지로 경량의 Distroless나 Scratch 이미지 등을 사용하는 경우 디버깅용 도구 등이 전혀 들어 있지 않기 때문에, 문제가 발생했을 때 `kubectl exec` 명령어를 사용하여 컨테이너 안으로 들어가도 디버깅을 수행하기 어렵다. 이 문제를 해결하기 위해 사용 가능한 것이 `kubectl debug` 명령어이다. 이 명령어는 파드에 추가 임시 컨테이너를 기동하고 그 컨테이너를 사용하여 디버깅이나 트러블슈팅을 수행한다.
+
+
+```sh
+# sample-pod에 임의의 명령어로 디버깅용 컨테이너를 기동하여 접속 (4장에서 생성한 k8s-alpha에서 실행)
+$ kubectl debug sample-pod --image=amsy810/tools:v2.0 -it -- bash
+```
+
+
+## 4.5.18 로컬 머신에서 파드로 포트 포워딩: port-forwarding
+
+
+디버깅 용도 등으로 JMX 클라이언트에서 컨테이너에서 실행 중인 자바 애플리케이션 서버에 접속하거나, 데이터베이스 클라이언트에서 컨테이너에서 기동 중인 MySQL 서버에 접속해야 하는 경우가 있다. 그런 경우 kubectl을 실행하는 로컬 머신에서 특정 파드로 트래픽을 전송하는 `kubectl port-forwarding` 명령어를 사용할 수 있다.
+
+
+```sh
+# localhost:8888에서 파드의 80/TCP 포트로 전송 (종료하려면 Ctrl + C 입력)
+$ kubectl port-forward sample-pod 8888:80
+
+# 다른 터미널에서 접속 확인
+$ curl -I localhost:8888
+```
+
+
+## 4.5.19 컨테이너 로그 확인: logs
+
+
+```sh
+# 파드 내의 컨테이너 로그 출력
+$ kubectl logs sample-pod
+
+# 특정 파드 내의 특정 컨테이너 로그 출력
+$ kubectl logs sample-pod -c nginx-container
+
+# 실시간 로그 출력
+$ kubectl logs -f sample-pod
+
+# 최근 1시간 이내, 10건의 로그를 타임스탬프와 함께 출력
+$ kubectl logs --since=1h --tail=10 --timestamp=true sample-pod
+
+# app=sample-app 레이블을 가진 모든 파드의 로그 출력
+$ kubectl logs --selector app=sample-app
+```
+
+
+## 4.5.20 컨테이너와 로컬 머신 간의 파일 복사: cp
+
+
+```sh
+# sample-pod의 /etc/hostname 파일을 로컬 머신에 복사
+$ kubectl cp sample-pod:/etc/hostname ./hostname
+
+# hostname 파일 확인
+$ cat hostname
+
+# 가져온 로컬 파일을 컨테이너로 복사
+$ kubectl cp hostname sample-pod:/tmp/newfile
+
+# 컨테이너의 /tmp를 확인
+$ kubectl exec -it sample-pod -- ls /tmp
+```
+
+
+## 4.5.21 kubectl 플러그인과 패키지 관리자: plugin/krew
+
+
+kubectl에는 하위 명령어가 확장할 수 있도록 플러그인이 준비되어 있다. kubectl 플러그인 관리는 수동으로 할 수 있지만, krew 라는 플러그인 관리자를 통해 관리할 것을 추천한다.
+
+
+```sh
+# krew 설치
+(
+  set -x; cd "$(mktemp -d)" &&
+  OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+  ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+  KREW="krew-${OS}_${ARCH}" &&
+  curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
+  tar zxvf "${KREW}.tar.gz" &&
+  ./"${KREW}" install krew
+)
+export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+
+# 플러그인 목록 표시
+$ kubectl plugin list
+
+# 플러그인 설치
+$ kubectl krew install tree rolesum sort-manifests open-svc view-serviceaccount-kubeconfig
+```
+
+
+## 4.5.22 kubectl에서 디버깅
+
+
+kubectl은 쿠버네티스 마스터의 API와 통신하여 클러스터를 관리한다. 따라서 어떤 에러가 발생했을 때는 API통신이나 kubectl 설정에 문제가 있는 경우가 대부분이다. kubectl 명령어를 실행할 때 -v 옵션으로 로그 레벨을 지정하면 면령어 실행 내용을 좀 더 상세히 볼 수 있다. 리소스 등을 생성했을 때 HTTP Request/Response 내용을 표시하는 경우 -v=6 이상의 로그 레벨로 출력하면 된다.
+
+
+Request Body/Resposne Body 까지 확인하려면 -v=8 이상의 레벨로 출력한다.
+
+
+```sh
+$ kubectl -v=6 get pod
+
+$ kubectl -v=8 apply -f sample-pod.yaml
+```
+
+
+## kubectl의 기타 팁
+
+
+### alias 생성
+
+
+```sh
+# kubectl 명령어를 k로 사용할 수 있도록 alias 설정
+$ alias k='kubectl'
+```
+
+
+### kube-ps1
+
+
+kube-ps1은 bash나 zsh의 프롬프트에 현재 작업 중인 쿠버네티스 클러스터와 네임스페이스를 표시한다. 맥 운영체제에서는 brew로 설치할 수 있다. 설치 후에는 다음 표시된 순서로 bashrc나 zshrc에 내용을 추가한다.
+
+
+```sh
+$ brew update
+$ brew install kube-ps1
+$ source "/opt/homebrew/Cellar/kube-ps1/0.7.0/share/kube-ps1.sh"
+$ PS1='$(kube_ps1)'$PS1
+$ kubeon
+
+# 프롬프트에 현재 작업 중인 클러스터와 네임스페이스 표시
+```
+
+
+### 파드가 기동하지 않는 경우의 디버깅
+
+
+쿠버네티스 환경에서 파드가 기동되지 않는 경우에는 디버깅할 때 주로 다음 세 가지 방법이 사용된다.
+
+1. `kubectl logs` 명령어를 사용하여 컨테이너가 출력하는 로그를 확인하는 방법이다. 이 방법은 주로 애플리케이션에 문제가 있을 때 유용하다.
+2. `kubectl describe` 명령어로 표시되는 Events 항목을 확인하는 방법이다. 이 방법은 주로 쿠버네티스 설정이나 리소스 설정에 문제가 있을 때 유용하다. 명령어를 실행하면 에러 메시지를 확인할 수 있어 리소스 부족으로 스케줄리 불가능/스케줄링 정책에 해당하는 노드가 없음/볼륨 마운트 실패 등의 원인을 파악 가능하다.
+3. 마지막으로 `kubectl run` 명령어를 사용하여 실제 컨테이너 셸로 확인하는 방법이다. 이는 주로 컨테이너 환경이나 애플리케이션에 문제가 있을 때 유용하다. 기동한 애플리케이션이 정지되면 파드도 정지되어 `kubectl exec` 명령어로 셸을 실행할 수 없다. 그런 경우에는 애플리케이션의 `ENTRYPOINT`를 덮어 씌워 일시적으로 컨테이너를 기동시켜 확인할 수 있다.
+
+
+# 출처
+https://m.blog.naver.com/isc0304/221860790762
