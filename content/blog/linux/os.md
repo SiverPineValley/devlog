@@ -28,7 +28,7 @@ Debian GNU/Linux 10 \n \l
 Debian GNU/Linux 10
 ```
 
-# 3. OS 비트 확인
+## 3. OS 비트 확인
 ```sh
 $ getconf LONG_BIT
 64
