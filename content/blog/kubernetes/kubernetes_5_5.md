@@ -1,5 +1,5 @@
 ---
-title: '[쿠버네티스 완벽 가이드] 09. 워크로드 API 카테고리 (5) - 잡, 크론잡'
+title: '[쿠버네티스 완벽 가이드] 11. 워크로드 API 카테고리 (5) - 잡, 크론잡'
 date: 2022-09-04 12:00:00
 category: 'kubernetes'
 draft: false
