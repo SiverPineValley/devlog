@@ -409,7 +409,7 @@ spec:
 
 
 ```sh
-# SVR 레코드가 다른 파드에서 해석이 가능한지 확인
+# SRV 레코드가 다른 파드에서 해석이 가능한지 확인
 $ kubectl exec -it sample-pod -- dig _http-port._tcp.sample-clusterip.default.svc.cluster.local SRV
 ...
 
@@ -438,6 +438,11 @@ NAME               TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
 kubernetes         ClusterIP   10.96.0.1      <none>        443/TCP    41d
 sample-clusterip   ClusterIP   10.96.214.33   <none>        8080/TCP   80m
 ```
+
+
+<div align="center">
+  <img src="./images/clusterip.png" width="600px" />
+</div>
 
 
 ## 6.3.1 ClusterIP 생성
@@ -530,3 +535,7 @@ sample-externalip   ClusterIP   10.96.170.55   172.18.0.2,172.18.0.3   8080/TCP 
 # 외부에서 ExternalIP로 통신
 $ curl -s http://172.18.0.2:8080
 ```
+
+
+## 출처
+https://dev-youngjun.tistory.com/20
