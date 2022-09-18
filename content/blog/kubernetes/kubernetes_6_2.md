@@ -279,7 +279,6 @@ apiVersion: v1
 kind: Service
 metadata:
   name: sample-lb-local
-spec:
   type: LoadBalancer
   externalTrafficPolicy: Local
   healthCheckNodePort: 30086
