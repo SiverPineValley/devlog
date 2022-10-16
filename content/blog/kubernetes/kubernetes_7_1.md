@@ -1,6 +1,6 @@
 ---
-title: '[쿠버네티스 완벽 가이드] 15. 컨피그 & 스토리지 API 카테고리 (1) - 환경변수, 시크릿'
-date: 2022-10-10 20:00:00
+title: '[쿠버네티스 완벽 가이드] 15. 컨피그 & 스토리지 API 카테고리 (1) - 환경변수, 시크릿, 컨피그맵'
+date: 2022-10-16 20:00:00
 category: 'kubernetes'
 draft: false
 ---
@@ -653,4 +653,452 @@ admin
 $ kubectl get pods sample-secret-multi-volume
 NAME                         READY   STATUS    RESTARTS   AGE
 sample-secret-multi-volume   1/1     Running   0          4m38s
+```
+
+# 7.4 컨피그맵
+
+
+컨피그맵은 설정 정보 등을 키-밸류 값으로 저장할 수 있는 데이터 저장 리소스이다. 키-밸류 형식 외에도 nginx.conf나 httpd.conf 같은 설정 파일 자체도 저장할 수 있다.
+
+
+## 7.4.1 컨피그맵 생성
+
+
+컨피그맵은 Generic 타입의 시크릿과 거의 동일한 방법으로 생성된다.
+
+
+- kubectl로 파일에서 값을 참조하여 생성 (--from-file)
+- kubectl로 직접 값을 전달하여 생성 (--from-literal)
+- 매니페스트로 생성 (-f)
+
+
+### kubectl로 파일에서 값을 참조하여 생성 (--from-file)
+
+
+이 방식의 경우 일반적으로 파일명이 그대로 키가 된다. 키 이름을 변경하고 싶은 경우에는 `--from-file=nginx.conf=sample-nginx.conf` 등과 같이 지정하면 된다. 컨피그맵 매니페스트는 data가 아닌 binaryData 필드를 사용하여 UTF-8 이외의 데이터를 포함하는 바이너리 데이터를 저장할 수 있다. 쿠버네티스에 직접 등록하는 것이 아니라 매니페스트 파일로 저장하려면 `--dry-run=client -o yaml` 옵션을 사용한다.
+
+
+```sh
+# 파일로 컨피그맵 생성
+$ kubectl create configmap --save-config sample-configmap --from-file=./nginx.conf=sample-nginx.conf
+configmap/sample-configmap created
+
+# 컨피그맵에 등록된 데이터 확인
+$ kubectl get configmaps sample-configmap -o json | jq.data
+{
+  "sample-nginx.conf": "user  nginx;\nworker_processes  auto;\nerror_log  /var/log/nginx/error.log warn;\npid        /var/run/nginx.pid;\n"
+}
+
+# 컨피그맵에 등록된 데이터 확인 (describe)
+$ kubectl describe configmaps sample-configmap
+Name:         sample-configmap
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+sample-nginx.conf:
+----
+user  nginx;
+worker_processes  auto;
+error_log  /var/log/nginx/error.log warn;
+pid        /var/run/nginx.pid;
+
+
+BinaryData
+====
+
+Events:  <none>
+
+$ kubectl create configmap sample-configmap-binary \
+--from-file image.jpg \
+--from-literal=index.html="Hello, Kubernetes" \
+--dry-run=client -o yaml \
+> sample-configmap-binary.yaml
+
+$ cat sample-configmap-binary.yaml
+apiVersion: v1
+binaryData:
+  image.jpg: /9j/4AAQSk...
+data:
+  index.html: Hello, Kubernetes
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: sample-configmap-binary
+```
+
+
+컨피그맵에 저장된 컨텐츠를 웹 서버에서도 사용할 수 있다.
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-configmap-binary-webserver
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx:1.16
+    volumeMounts:
+    - name: config-volume
+      mountPath: /usr/share/nginx/html
+  volumes:
+  - name: config-volume
+    configMap:
+      name: sample-configmap-binary
+```
+
+
+```sh
+$ kubectl apply -f sample-configmap-binary-webserver.yaml
+pod/sample-configmap-binary-webserver created
+
+# 로컬 머신 8080 포트에서 파드의 80번 포트로 포트 포워딩
+$ kubectl port-forward sample-configmap-binary-webserver 8080:80
+Forwarding from [::1]:8080 -> 80
+
+# 브라우저로 표시
+$ open http://localhost:8080/image.jpg
+```
+
+
+### kubectl로 직접 값을 전달하여 생성(--from-literal)
+
+
+```sh
+$ kubectl create configmap --save-config web-config \
+> --from-literal=connection.max=100 --from-literal=connection.min=10
+configmap/web-config created
+```
+
+
+### 매니페스트로 생성(-f)
+
+
+매니페스트로 생성할 경우 시크릿과 다르게 base64로 인코드되지 않고 추가된다. 밸류를 여러 행으로 전달하는 경우 YAML 문법 스타일에 맞춰 `Key: |`등과 같이 다음 행부터 정의한다. 그리고 숫자는 큰따옴표로 둘러싸도록 한다.
+
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-configmap
+data:
+  thread: "16"
+  connection.max: "100"
+  connection.min: "10"
+  sample.properties: |
+    property.1=value-1
+    property.2=value-2
+    property.3=value-3
+  nginx.conf: |
+    user nginx;
+    worker_processes auto;
+    error_log /var/log/nginx/error.log;
+    pid /run/nginx.pid;
+```
+
+
+## 7.4.2 컨피그맵 사용
+
+
+컨피그맵을 컨테이너에서 사용하는 경우 크게 두 가지 방법이 있다.
+
+
+- 환경 변수로 전달: 컨피그맵의 특정 키만, 컨피그맵의 전체 키
+- 볼륨으로 마운트: 컨피그맵의 특정 키만, 컨피그맵의 전체 키
+
+
+### 환경 변수로 전달
+
+
+컨피그맵의 특정 키를 전달하는 경우 `spec.containers[].env`의 `valueFrom.configMapKeyRef`를 사용하여 지정한다.
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-configmap-single-env
+spec:
+  containers:
+    - name: configmap-container
+      image: nginx:1.16
+      env:
+        - name: CONNECTION_MAX
+          valueFrom:
+            configMapKeyRef:
+              name: sample-configmap
+              key: connection.max
+```
+
+
+```sh
+# 파드의 CONNECTION_MAX 환경 변수 내용 확인
+$ kubectl exec -it sample-configmap-single-env -- env | grep CONNECTION_MAX
+CONNECTION_MAX=100
+```
+
+
+컨피그맵 전체 키를 환경 변수로 전달하는 것도 가능하다. 키마다 각각의 env를 지정할 필요가 없다.
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-configmap-multi-env
+spec:
+  containers:
+    - name: configmap-container
+      image: nginx:1.16
+      envFrom:
+      - configMapRef:
+          name: sample-configmap
+```
+
+
+### 볼륨으로 마운트
+
+
+볼륨으로 마운트하는 경우도 특정 키만 마운트하거나 컨피그맵 전체를 마운트하는 두 가지 방법이 있다. 컨피그맵의 특정 키만 마운트할 경우에는 `spec.volumes[]`의 `configMap.items[]`를 사용하여 지정한다.
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-configmap-single-volume
+spec:
+  containers:
+    - name: configmap-container
+      image: nginx:1.16
+      volumeMounts:
+      - name: config-volume
+        mountPath: /config
+  volumes:
+    - name: config-volume
+      configMap:
+        name: sample-configmap
+        items:
+        - key: nginx.conf
+          path: nginx-sample.conf
+```
+
+
+```sh
+# 파일로 저장된 컨피그맵 확인
+$ kubectl exec -it sample-configmap-single-volume -- cat /config/nginx-sample.conf
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+```
+
+
+컨피그맵 전체를 지정할 때는 아래와 같은 매니페스트를 사용한다.
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-configmap-multi-volume
+spec:
+  containers:
+    - name: configmap-container
+      image: nginx:1.16
+      volumeMounts:
+      - name: config-volume
+        mountPath: /config
+  volumes:
+    - name: config-volume
+      configMap:
+        name: sample-configmap
+```
+
+
+## 7.4.3 시크릿과 컨피그맵
+
+
+### 시크릿과 컨피그맵 사용 구분
+
+
+앞서 설명한 시크릿과 컨피그맵은 모두 설정 정보나 프리셋을 저장한다는 점에서 유사하지만, 시크릿은 기밀 정보를 취급하기 위한 리소스라는 차이점이 있다. 시크릿 데이터는 쿠버네티스 마스터가 사용하는 분산 KVS(Key-Value Store)의 etcd에 저장된다. 실제 시크릿을 사용하는 파드가 있을 경우에만 etcd에서 쿠버네티스 노드로 데이터를 보낸다. 이때 쿠버네티스 노드상에 영구적으로 데이터가 남지 않도록 하기 위해 시크릿 데이터는 메모리상에 구축된 임시 파일 시스템인 tmpfs 영역에 저장된다. 또한, 시크릿이 안전한 이유는 `kubectl` 명령어로 표시했을 때 값이 보기 어렵게 되어 있다는 점이다. 실제로 조회를 해보면 base64로 인코딩되어 사람이 바로 읽을 수 없게 되어 있다.
+
+
+매니페스트에 저장된 데이터는 base64로 인코드되어 있을 뿐이다. 따라서 그대로 깃 저장소에 업로드하는 것은 피하는 것이 좋다.
+
+
+### 컨피그맵과 시크릿의 데이터 마운트 시 퍼미션 변경
+
+
+컨피그맵에 저장된 스크립트를 파드에서 실행하는 경우 컨피그맵 데이터에서 볼륨을 생성할 때 실행 권한을 부여할 수 있다. 시크릿도 작성된 기밀 데이터를 파드에 마운트하는 경우 데이터에서 볼륨을 생성할 때 퍼미션을 부여할 수 있다. 둘 다 기본 값 0644(rw-r--r--)로 마운트된다. 퍼미션은 8진수 표기에서 10진수 표기로 기술해야 한다.
+
+
+|10진수 표기|8진수 표기|raw 표기|
+|---|---|---|
+|256|0400|r--------|
+|384|0600|rw-------|
+|420|0644|rw-r--r--|
+|448|0700|rwx------|
+|493|0755|rwxr-xr-x|
+|511|0777|rwxrwxrwx|
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-configmap-scripts
+spec:
+  containers:
+  - name: configmap-container
+    image: nginx:1.16
+    command: ["/config/test.sh"]
+    volumeMounts:
+    - name: config-volume
+      mountPath: /config
+  volumes:
+  - name: config-volume
+    configMap:
+      name: sample-configmap
+      items:
+      - key: test.sh
+        path: test.sh
+        mode: 493 # 0755
+```
+
+
+```sh
+$ kubectl apply -f sample-configmap-scripts.yaml
+pod/sample-configmap-scripts created
+
+$ kubectl logs sample-configmap-scripts
+Hello, Kubernetes
+```
+
+
+아래 매니페스트에서는 시크릿 내부의 모든 데이터를 0400으로 마운트한다.
+
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-secret-secure
+spec:
+  containers:
+  - name: secret-container
+    image: nginx:1.16
+    volumeMounts:
+    - name: config-volume
+      mountPath: /config
+  volumes:
+  - name: config-volume
+    secret:
+      secretName: sample-db-auth
+      defaultMode: 256
+```
+
+
+```sh
+$ kubectl exec -it sample-secret-secure -- ls -l /config
+total 0
+lrwxrwxrwx 1 root root 15 Oct 16 08:57 password -> ..data/password
+lrwxrwxrwx 1 root root 15 Oct 16 08:57 username -> ..data/username
+
+$ kubectl exec -it sample-secret-secure -- ls -l /config/..data/
+total 8
+-r-------- 1 root root 12 Oct 16 08:57 password
+-r-------- 1 root root  4 Oct 16 08:57 username
+```
+
+
+### 동적 컨피그맵 업데이트
+
+
+볼륨 마운트를 사용한 컨피그맵에서는 일정 시간마다 kubeapiserver로 변경을 확인하고 변경이 있을 경우 파일을 교체한다. 기본 업데이트 간격은 60초로 설정되어 있다. 이 간격을 조정하기 위해서는 kubelet의 `--sync-frequency` 옵션을 설정한다. 한편 환경 변수를 사용한 컨피그맵은 기동할 때 환경 변수가 정해지기 때문에 동적으로 업데이트를 할 수 없다. 따라서 4장에서 설명한 `kubectl rollout restart` 명령어를 사용하여 파드를 재기동한다.
+
+
+```sh
+# 컨피그맵이 마운트되어 있는 디렉터리 확인
+$ kubectl exec -it sample-configmap-multi-volume -- ls -al /config
+total 12
+drwxrwxrwx 3 root root 4096 Oct 16 09:01 .
+drwxr-xr-x 1 root root 4096 Oct 16 09:01 ..
+drwxr-xr-x 2 root root 4096 Oct 16 09:01 ..2022_10_16_09_01_08.2265248405
+lrwxrwxrwx 1 root root   32 Oct 16 09:01 ..data -> ..2022_10_16_09_01_08.2265248405
+lrwxrwxrwx 1 root root   21 Oct 16 09:01 connection.max -> ..data/connection.max
+lrwxrwxrwx 1 root root   21 Oct 16 09:01 connection.min -> ..data/connection.min
+lrwxrwxrwx 1 root root   17 Oct 16 09:01 nginx.conf -> ..data/nginx.conf
+lrwxrwxrwx 1 root root   24 Oct 16 09:01 sample.properties -> ..data/sample.properties
+lrwxrwxrwx 1 root root   14 Oct 16 09:01 test.sh -> ..data/test.sh
+lrwxrwxrwx 1 root root   13 Oct 16 09:01 thread -> ..data/thread
+
+# 파드의 /config/thread 파일 내용 확인
+$ kubectl exec -it sample-configmap-multi-volume -- cat /config/thread
+16
+
+# 컨피그맵 변경 전의 경과 시간(AGE)확인
+$ kubectl get pods sample-configmap-multi-volume
+NAME                            READY   STATUS    RESTARTS   AGE
+sample-configmap-multi-volume   1/1     Running   0          88s
+
+# 컨피그맵 업데이트
+$ cat << EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-configmap
+data:
+  thread: "32"
+EOF
+configmap/sample-configmap configured
+
+# 컨피그맵이 마운트되어 있는 디렉터리 확인
+$ kubectl exec -it sample-configmap-multi-volume -- ls -al /config
+total 12
+drwxrwxrwx 3 root root 4096 Oct 16 09:01 .
+drwxr-xr-x 1 root root 4096 Oct 16 09:01 ..
+drwxr-xr-x 2 root root 4096 Oct 16 09:01 ..2022_10_16_09_01_08.2265248405
+lrwxrwxrwx 1 root root   32 Oct 16 09:01 ..data -> ..2022_10_16_09_01_08.2265248405
+lrwxrwxrwx 1 root root   21 Oct 16 09:01 connection.max -> ..data/connection.max
+lrwxrwxrwx 1 root root   21 Oct 16 09:01 connection.min -> ..data/connection.min
+lrwxrwxrwx 1 root root   17 Oct 16 09:01 nginx.conf -> ..data/nginx.conf
+lrwxrwxrwx 1 root root   24 Oct 16 09:01 sample.properties -> ..data/sample.properties
+lrwxrwxrwx 1 root root   14 Oct 16 09:01 test.sh -> ..data/test.sh
+lrwxrwxrwx 1 root root   13 Oct 16 09:01 thread -> ..data/thread
+
+# 변경된 내용 확인
+$ kubectl exec -it sample-configmap-multi-volume -- cat /config/thread
+32
+```
+
+
+### 시크릿이나 컨피그맵의 데이터 변경 거부
+
+
+시크릿이나 컨피그맵은 여러 디플로이먼트 등에서 참조되는 경우가 많고, 변경하게 되면 여러 애플리케이션에 영향을 준다. 시크릿이나 컨피그맵의 `immutable`설정을 변경하면 데이터가 변경되는 것을 방지하고 예상치 못한 시스템 변경도 방지할 수 있다. 변경이 거부된 시크릿이나 컨피그맵의 데이터를 변경하는 경우에는 리소스를 한 번 삭제하고 다시 생성하면 된다. 또, 볼륨으로 마운트하고 있는 경우 파드 재생성이 필요하다. 또한, 설정값 자체를 false로 변경하는 것도 불가능하다.
+
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sample-secret-immutable
+type: Opaque
+data:
+  username: cm9vdA== # root
+  password: cm9vdHBhc3N3b3Jk # rootpassword
+immutable: true
+```
+
+
+```sh
+$ kubectl patch secret sample-secret-immutable -p '{"data": {"username": "a69nZQ=="}}'
+The Secret "sample-secret-immutable" is invalid: data: Forbidden: field is immutable when `immutable` is set
 ```
