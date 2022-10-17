@@ -1,5 +1,5 @@
 ---
-title: '개인키, 공개키 키 종류 비교'
+title: '[Cert] 개인키, 공개키 키 종류 비교'
 date: 2022-07-30 14:00:00
 category: 'cert'
 draft: false
