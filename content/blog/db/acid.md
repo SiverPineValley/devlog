@@ -1,7 +1,7 @@
 ---
 title: '[Database] ACID 원칙'
 date: 2022-10-17 18:00:00
-category: 'kubernetes'
+category: 'db'
 draft: false
 ---
 
