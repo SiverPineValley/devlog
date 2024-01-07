@@ -67,6 +67,6 @@ Javascript 기반의 언어에 비해 눈에 띄게 좋아진 점이라고 생�
 
 </br>
 
-# 4. 출처
+# 3. 출처
 https://yozm.wishket.com/magazine/detail/1566/</br>
 https://namu.wiki/w/Flutter(%ED%94%84%EB%A0%88%EC%9E%84%EC%9B%8C%ED%81%AC)#s-2.1</br>
