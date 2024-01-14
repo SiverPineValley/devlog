@@ -77,3 +77,6 @@ Selector 위젯은 Consumer와 유사한데, 한정된 수의 value들을 선택
 </br>
 
 Consumer와 거의 유사하나, selector 함수가 추가되었다. Extension method의 `select()`와 유사하게, Provider로 제공할 클래스, 리턴받을 값의 타입을 지정한다. builder 함수 역시 거의 유사하나, 타입 T가 아닌 앞서 selector에서 리턴받은 타입을 넣어준다.
+
+# 3. 출처
+https://www.udemy.com/course/flutter-provider-essential-korean/</br>

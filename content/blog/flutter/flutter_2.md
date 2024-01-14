@@ -184,3 +184,6 @@ StreamProvider는 특정 값이 연속적으로 변경이 있을 때 주기적�
 </br>
 
 이러한 StreamProvider는 Firebase처럼 Stream 형식으로 값을 주고받거나, 지속적인 값의 변화가 나타나는 기능들에서 사용될 수 있다.
+
+# 5. 출처
+https://www.udemy.com/course/flutter-provider-essential-korean/</br>
