@@ -213,10 +213,41 @@ spec:
     image: nginx:1.16
     volumeMounts:
     - name: sample-pvc
-      path: mountPath: /usr/share/nginx
+      mountPath: /usr/share/nginx
   volumes:
   - name: sample-pvc
     persistentVolumeClaim: sample-pvc
+```
+
+</br>
+
+volumeMounts에서는 몇 가지 옵션을 지정할 수 있다. `readOnly`는 말 그대로 마운트할 때 readOnly 옵션을 주는 케이스이다. hostPath는 컨테이너에 호스트 영역을 보여주기 때문에 보안상 그다지 좋지 않다. 어쩔 수 없이 hostPath로 마운트해야 하는 경우 최소한 readOnly 옵션을 주는 것이 좋다.
+
+</br>
+
+`subPath`는 볼륨 마운트 시 특정 디렉터리를 루트로 마운트하는 기능이다. 즉, 호스트의 특정 경로를 subPath로 지정하면, 해당 경로를 mountPath에 마운트한다.
+
+</br>
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: sample-volumemount-option-pod
+spec:
+  containers:
+  - image: nginx:1.16
+    name: nginx-container
+    volumeMounts:
+    - mountPath: /srv
+      name: sample-volumemount-option-pv
+      readOnly: true
+      subPath: /path1
+  volumes:
+  - name: sample-volumemount-option-pv
+    hostPath:
+      path: /etc
+      type: DirectoryOrCreate
 ```
 
 </br>
